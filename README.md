@@ -34,3 +34,21 @@ Run the executable
 ```bash
 ./eeg
 ```
+
+## Issues
+The eego-sdk provides a shared object (`libeego-SDK.so`) that is x86 compatible. This does not work with the raspberry pi's ARM architecture.
+
+The following is as far as we can get when we attempt to create the factory per this line:
+
+```cpp
+factory fact("libeego-SDK.so");
+```
+
+Compilation error
+```bash
+/home/eeg/linux/64bit/libeego-SDK.so: file not recognized: file format not recognized
+collect2: error: ld returned 1 exit status
+make[2]: *** [CMakeFiles/eeg.dir/build.make:118: eeg] Error 1
+make[1]: *** [CMakeFiles/Makefile2:95: CMakeFiles/eeg.dir/all] Error 2
+make: *** [Makefile:103: all] Error 2
+```
