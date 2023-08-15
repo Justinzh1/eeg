@@ -1,6 +1,14 @@
 # EEG Project
 
 ## Setup
+The following assums a unix environment. You should have gcc and cmake installed already.
+
+```bash
+sudo apt-get update
+sudo apt-get install cmake
+sudo apt install gcc
+```
+
 Unzip the `eego-sdk.zip` (you will need your own copy) file at the project root. You should have the following directory structure
 
 ```bash
