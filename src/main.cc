@@ -26,17 +26,17 @@ int main() {
     // Get Amplifier
     auto amp = fact.getAmplifier();
     if (amp) {
+        // Collect channel data
         auto channels = amp->getChannelList();
         std::cout << "Found " << channels.size() << " channels.\n";
-
         for (uint32_t i = 0; i < channels.size(); ++i) {
             auto channel = channels[i];
             std::cout << "Channel Type: " << channel.getType() << " index: " << channel.getIndex() << "\n";
         }
 
-        stream* eegStream = amp->OpenEegStream(1000);
-
-        std::cout<<"press s exit\n";
+        // Collect impedance data
+        stream* impStream = amp->OpenImpedanceStream(channels);
+        std::cout<<"press c to continue and stop measuring impedance\n";
 
         initscr();
         cbreak();
@@ -44,6 +44,28 @@ int main() {
         scrollok(stdscr, TRUE);
         nodelay(stdscr, TRUE);
 
+        addstr("Measuring impedance. Press c to continue\n");
+        while (true) {
+            if (getch() == 'c') {
+                break;
+            }
+            buffer buf = impStream->getData();
+            auto channelCount = buf.getChannelCount(); auto sampleCount = buf.getSampleCount();
+            std::string line = "[" + std::to_string(sampleCount) + "] ";
+            for (uint32_t j = 0; j < channelCount; j++) {
+                auto sample = buf.getSample(j, sampleCount - 1);
+                line += std::to_string(sample) + " ";
+            }
+            line += "\n";
+            // Uncomment to log data
+            addstr(line.c_str());
+            napms(1000);
+        }
+        delete impStream;
+      
+        // Collect eeg data
+        stream* eegStream = amp->OpenEegStream(1000);
+        addstr("Measuring eeg. Press s to exit\n");
         while (true) {
             if (getch() == 's') {
                 break;
