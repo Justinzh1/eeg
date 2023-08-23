@@ -4,41 +4,9 @@
 #include <thread>
 #include <eemagine/sdk/factory.h>
 #include <chrono>
+#include <ncurses.h>
 
 const std::string EEG_DATA_FILE = "data.txt";
-
-std::string format_data(std::vector<double>& channels) {
-    std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
-    std::chrono::seconds unixTimestamp = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch());
-    std::string timestampStr = std::to_string(unixTimestamp.count());
-
-    std::stringstream ss;
-
-    ss << timestampStr + " ";
-    
-    // Use an iterator to traverse the vector
-    for (auto it = channels.begin(); it != channels.end(); ++it) {
-        ss << *it; // Append the current element to the stringstream
-        
-        // Add a space unless it's the last element
-        if (std::next(it) != channels.end()) {
-            ss << " ";
-        }
-    }
-    
-    // Convert the stringstream to a string
-    ss << "\n";
-    return ss.str();
-}
-
-int write_eeg_data(std::vector<double> channel_data) {
-    std::fstream eeg_data_file = std::fstream(EEG_DATA_FILE, std::fstream::in | std::fstream::out | std::fstream::trunc);
-    auto formatted_data = format_data(channel_data);
-    eeg_data_file << formatted_data;
-    eeg_data_file.close();
-    return 0;
-}
-
 
 int main() {
     std::cout << "Initializing EEG...\n";
@@ -55,27 +23,56 @@ int main() {
     // TODO (jzhong) store the amplifier data in this vector
     std::vector<double> channel_data;
 
-    // Get Amplifiers
-    auto amps = fact.getAmplifiers();
-    if (amps.size() > 0) {
-        std::cout << "Found " << amps.size() << "amplifiers!\n";
-        // TODO process the data from amplifiers and write to a new file
+    // Get Amplifier
+    auto amp = fact.getAmplifier();
+    if (amp) {
+        auto channels = amp->getChannelList();
+        std::cout << "Found " << channels.size() << " channels.\n";
+
+        for (uint32_t i = 0; i < channels.size(); ++i) {
+            auto channel = channels[i];
+            std::cout << "Channel Type: " << channel.getType() << " index: " << channel.getIndex() << "\n";
+        }
+
+        stream* eegStream = amp->OpenEegStream(1000);
+
+        std::cout<<"press s exit\n";
+
+        initscr();
+        cbreak();
+        noecho();
+        scrollok(stdscr, TRUE);
+        nodelay(stdscr, TRUE);
+
+        while (true) {
+            if (getch() == 's') {
+                break;
+            }
+            buffer buf = eegStream->getData();
+            auto channelCount = buf.getChannelCount(); auto sampleCount = buf.getSampleCount();
+            std::string line = "[" + std::to_string(sampleCount) + "] ";
+            for (uint32_t j = 0; j < channelCount; j++) {
+                auto sample = buf.getSample(j, sampleCount - 1);
+                line += std::to_string(sample) + " ";
+            }
+            line += "\n";
+            // Uncomment to log data
+            // addstr(line.c_str());
+
+            std::fstream eeg_data_file = std::fstream(EEG_DATA_FILE, std::fstream::in | std::fstream::out | std::fstream::trunc);
+            eeg_data_file << line;
+            eeg_data_file.close();
+            napms(1000);
+        }
+
+        std::cout<<"exited: "<<std::endl;
+        delete eegStream;
+        delete amp;
+        endwin();
+        return 0; 
+
     } else {
         std::cout << "No amplifiers found.\n";
-
-        // Using test data if no amplifiers are found
-        channel_data = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0};
-
-        using frames = std::chrono::duration<std::int64_t, std::ratio<1, 2>>;
-        auto next_start = std::chrono::steady_clock::now() + frames{0};
-        for (uint32_t i = 0; i < 60; ++i)
-        {
-            // do work here
-            std::cout << "write eeg data " << i << "\n";
-            write_eeg_data(channel_data);
-            next_start += frames{1};
-            std::this_thread::sleep_until(next_start);
-        }
     }
 
     return 0;

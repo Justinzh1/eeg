@@ -25,4 +25,4 @@ add_executable(${PROJECT_NAME} ${MAIN_SRC} ${OTHER_SRC} ${EEMAGINE_SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE ${EEMAGINE_SDK_DIR})
 
 # Link against the dynamic linking loader library (for dlopen, dlerror, dlsym)
-target_link_libraries(${PROJECT_NAME} ${CMAKE_DL_LIBS} eego-SDK)
+target_link_libraries(${PROJECT_NAME} ${CMAKE_DL_LIBS} eego-SDK ncurses)
