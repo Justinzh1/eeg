@@ -38,9 +38,15 @@ Build the CMakeList and then the Makefile
 cmake .. && make
 ```
 
-Run the executable
+## Usage
+Run the executable. The executable should be runnable from anywhere using the following command (I've included it in the path)
 ```bash
-./eeg
+eeg
+```
+
+Alternatively, you can run this command directly assuming you have built the executable.
+```
+/home/callosum/Code/eeg/build/eeg
 ```
 
 ## Issues

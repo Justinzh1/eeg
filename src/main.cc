@@ -48,26 +48,20 @@ EegParams getArgs(int argc, char *argv[]) {
 
     params.debug = d_flag;
     params.sample_frequency = sample_frequency;
+    
+    std::cout << "using debug mode = " << args.debug << "\n";
+    std::cout << "using sample frequency = " << args.sample_frequency << "\n";
 
     return params;
 }
 
 int main(int argc, char *argv[]) {
     auto args = getArgs(argc, argv);
-    std::cout << "using debug mode = " << args.debug << "\n";
-    std::cout << "using sample frequency = " << args.sample_frequency << "\n";
-
-    std::cout << "Initializing EEG...\n";
 
     // Instantiate EEG SDK
+    std::cout << "Initializing EEG...\n";
     using namespace eemagine::sdk;
-    // We are using dynaic binding, but in case it doesn't work..
-    // Use `sudo ldconfig` to reload the library if the amplifiers are not showing up
     factory fact("libeego-SDK.so");
-
-    // Create a vector of channel data
-    // TODO (jzhong) store the amplifier data in this vector
-    std::vector<double> channel_data;
 
     // Get Amplifier
     eemagine::sdk::amplifier* amp;
@@ -105,6 +99,8 @@ int main(int argc, char *argv[]) {
                 break;
             }
             buffer buf = eegStream->getData();
+
+            // Process Channel Data
             auto channelCount = buf.getChannelCount(); auto sampleCount = buf.getSampleCount();
             std::string line = "[" + std::to_string(sampleCount) + "] ";
             for (uint32_t j = 0; j < channelCount; j++) {
@@ -113,14 +109,15 @@ int main(int argc, char *argv[]) {
             }
             line += "\n";
 
-            // if (args.debug) {
-            if (false) {
+            if (args.debug) {
                 addstr(line.c_str());
             }
 
             std::fstream eeg_data_file = std::fstream(EEG_DATA_FILE, std::fstream::in | std::fstream::out | std::fstream::trunc);
             eeg_data_file << line;
             eeg_data_file.close();
+
+            // Sleep
             napms(1000);
         }
 
@@ -131,7 +128,8 @@ int main(int argc, char *argv[]) {
         return 0; 
 
     } else {
-        std::cout << "No amplifiers found.\n";
+        std::cout << "No amplifiers found. Check that everything is plugged in.\n";
+        return -1;
     }
 
     return 0;

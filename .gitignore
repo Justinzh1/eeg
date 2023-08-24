@@ -1,5 +1,6 @@
 build/*
 linux/*
 windows/*
-eego-sdk.zip
+eego_sdk.zip
 eemagine/sdk/*
+vscode/*
