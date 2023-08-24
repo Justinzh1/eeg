@@ -3,6 +3,7 @@ project(eeg)
 
 # Add the path to the eemagine directory, relative to the current directory
 set(EEMAGINE_DIR "eemagine/sdk")
+set(CMAKE_CXX_FLAGS "-Wall -O2 -Wextra")
 
 # Add the include directory paths
 include_directories(${CMAKE_SOURCE_DIR})

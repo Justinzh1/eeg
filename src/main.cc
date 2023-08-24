@@ -12,17 +12,20 @@ const std::string EEG_DATA_FILE = "data.txt";
 struct EegParams {
     bool debug;
     int sample_frequency;
+    int sleep_ms;
 };
 
 EegParams getArgs(int argc, char *argv[]) {
     EegParams params = EegParams{
         debug: false,
         sample_frequency: 500,
+        sleep_ms: 1000,
     };
     int opt;
     bool d_flag = false;
     int sample_frequency = 500;
-    while ((opt = getopt(argc, argv, "hds:")) != -1) {
+    int sleep_ms = 1000;
+    while ((opt = getopt(argc, argv, "hdsw:")) != -1) {
         switch(opt) {
         case 'd':
             d_flag = true;
@@ -30,15 +33,19 @@ EegParams getArgs(int argc, char *argv[]) {
         case 's':
             sample_frequency = atoi(optarg);
             break;
+        case 'w':
+            sleep_ms = atoi(optarg);
+            break;
         case 'h':
             fprintf(stderr,
                 "Eego handler \n"
                 "Usage: eego [OPTION]...\n"
-                "Example: eego -d -s500\n"
+                "Example: eego -d -s500 -w500\n"
                 "\n"
                 "  -h        Print out this help\n"
                 "  -d        Debug mode to show more logs\n"
                 "  -s        Sample frequency (eg. 500, 512, 1000, 1024, 2000, 2048, 4000, 4096, 8000, 8192, 16000, 16384)\n"
+                "  -w        The time to sleep beteween each file write\n"
             );
             exit(EXIT_FAILURE);
         default:
@@ -48,9 +55,11 @@ EegParams getArgs(int argc, char *argv[]) {
 
     params.debug = d_flag;
     params.sample_frequency = sample_frequency;
+    params.sleep_ms = sleep_ms;
     
     std::cout << "using debug mode = " << params.debug << "\n";
     std::cout << "using sample frequency = " << params.sample_frequency << "\n";
+    std::cout << "using sleep ms = " << params.sleep_ms << "\n";
 
     return params;
 }
@@ -106,7 +115,7 @@ int main(int argc, char *argv[]) {
         nodelay(stdscr, TRUE);
 
         // Collect eeg data
-        stream* eegStream = amp->OpenEegStream(1000);
+        stream* eegStream = amp->OpenEegStream(args.sample_frequency);
         addstr("Measuring eeg. Press s to exit\n");
         while (true) {
             if (getch() == 's') {
@@ -120,16 +129,15 @@ int main(int argc, char *argv[]) {
                 addstr(line.c_str());
             }
 
-            // Write the stream data to a file
             std::fstream eeg_data_file = std::fstream(EEG_DATA_FILE, std::fstream::in | std::fstream::out | std::fstream::trunc);
             eeg_data_file << line;
             eeg_data_file.close();
 
             // Sleep
-            napms(1000);
+            napms(args.sleep_ms);
         }
 
-        std::cout<<"exited: "<<std::endl;
+        std::cout<<"exited\n";
         delete eegStream;
         delete amp;
         endwin();
