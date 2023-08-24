@@ -49,10 +49,32 @@ EegParams getArgs(int argc, char *argv[]) {
     params.debug = d_flag;
     params.sample_frequency = sample_frequency;
     
-    std::cout << "using debug mode = " << args.debug << "\n";
-    std::cout << "using sample frequency = " << args.sample_frequency << "\n";
+    std::cout << "using debug mode = " << params.debug << "\n";
+    std::cout << "using sample frequency = " << params.sample_frequency << "\n";
 
     return params;
+}
+
+void printChannelData(std::vector<eemagine::sdk::channel> channels) {
+    std::cout << "Found " << channels.size() << " channels.\n";
+        for (uint32_t i = 0; i < channels.size(); ++i) {
+            auto channel = channels[i];
+            std::cout << "Channel Type: " << channel.getType() << " index: " << channel.getIndex() << "\n";
+    }
+}
+
+std::string processStream(eemagine::sdk::stream* stream) {
+    eemagine::sdk::buffer buf = stream->getData();
+
+    // Process Channel Data
+    auto channelCount = buf.getChannelCount(); auto sampleCount = buf.getSampleCount();
+    std::string line = "[" + std::to_string(sampleCount) + "] ";
+    for (uint32_t j = 0; j < channelCount; j++) {
+        auto sample = buf.getSample(j, sampleCount - 1);
+        line += std::to_string(sample) + " ";
+    }
+    line += "\n";
+    return line;
 }
 
 int main(int argc, char *argv[]) {
@@ -73,18 +95,10 @@ int main(int argc, char *argv[]) {
     }
 
     if (amp) {
-        // Collect channel data
         auto channels = amp->getChannelList();
-        std::cout << "Found " << channels.size() << " channels.\n";
-        for (uint32_t i = 0; i < channels.size(); ++i) {
-            auto channel = channels[i];
-            std::cout << "Channel Type: " << channel.getType() << " index: " << channel.getIndex() << "\n";
-        }
+        printChannelData(channels);
 
-        // Collect impedance data
-        stream* impStream = amp->OpenImpedanceStream(channels);
-        std::cout<<"press c to continue and stop measuring impedance\n";
-
+        // Initiate the terminal 
         initscr();
         cbreak();
         noecho();
@@ -98,21 +112,15 @@ int main(int argc, char *argv[]) {
             if (getch() == 's') {
                 break;
             }
-            buffer buf = eegStream->getData();
 
-            // Process Channel Data
-            auto channelCount = buf.getChannelCount(); auto sampleCount = buf.getSampleCount();
-            std::string line = "[" + std::to_string(sampleCount) + "] ";
-            for (uint32_t j = 0; j < channelCount; j++) {
-                auto sample = buf.getSample(j, sampleCount - 1);
-                line += std::to_string(sample) + " ";
-            }
-            line += "\n";
+            auto line = processStream(eegStream);
 
+            // Log the stream data to the terminal if debug mode is enabled
             if (args.debug) {
                 addstr(line.c_str());
             }
 
+            // Write the stream data to a file
             std::fstream eeg_data_file = std::fstream(EEG_DATA_FILE, std::fstream::in | std::fstream::out | std::fstream::trunc);
             eeg_data_file << line;
             eeg_data_file.close();
