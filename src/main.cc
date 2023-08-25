@@ -7,7 +7,7 @@
 #include <ncurses.h>
 #include <getopt.h>
 
-const std::string EEG_DATA_FILE = "data.txt";
+const std::string EEG_DATA_FILE = "/home/callosum/Documents/burning_man/burning man/eeg_data.csv";
 
 struct EegParams {
     bool debug;
@@ -63,15 +63,21 @@ void printChannelData(std::vector<eemagine::sdk::channel> channels) {
     }
 }
 
-std::string processStream(eemagine::sdk::stream* stream) {
+std::string processStream(eemagine::sdk::stream* stream, int targetChannel) {
     eemagine::sdk::buffer buf = stream->getData();
 
+    if (targetChannel > 7) {
+        addstr("invalid channel, must be less than 7");
+    }
+
     // Process Channel Data
-    auto channelCount = buf.getChannelCount(); auto sampleCount = buf.getSampleCount();
-    std::string line = "[" + std::to_string(sampleCount) + "] ";
-    for (uint32_t j = 0; j < channelCount; j++) {
-        auto sample = buf.getSample(j, sampleCount - 1);
-        line += std::to_string(sample) + " ";
+    // auto channelCount = buf.getChannelCount();
+    auto sampleCount = buf.getSampleCount();
+    std::string line = "";
+
+    for (int i = 0; i < sampleCount; i++) {
+        auto sample = buf.getSample(targetChannel, i);
+        line += std::to_string(sample) + ",";
     }
     line += "\n";
     return line;
@@ -113,7 +119,7 @@ int main(int argc, char *argv[]) {
                 break;
             }
 
-            auto line = processStream(eegStream);
+            auto line = processStream(eegStream, 0);
 
             // Log the stream data to the terminal if debug mode is enabled
             if (args.debug) {
