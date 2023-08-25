@@ -74,10 +74,13 @@ std::string processStream(eemagine::sdk::stream* stream, int targetChannel) {
     // auto channelCount = buf.getChannelCount();
     auto sampleCount = buf.getSampleCount();
     std::string line = "";
-
-    for (int i = 0; i < sampleCount; i++) {
-        auto sample = buf.getSample(targetChannel, i);
-        line += std::to_string(sample) + ",";
+    for (int j = 0; j < 8; j++) {
+        for (int i = 0; i < sampleCount; i++) {
+            auto sample = buf.getSample(targetChannel, i);
+            if (j == targetChannel) {
+                line += std::to_string(sample) + ",";
+            }
+        }
     }
     line += "\n";
     return line;
@@ -110,16 +113,16 @@ int main(int argc, char *argv[]) {
         noecho();
         scrollok(stdscr, TRUE);
         nodelay(stdscr, TRUE);
-
-        // Collect eeg data
-        stream* eegStream = amp->OpenEegStream(1000);
+// Collect eeg data
+        stream* eegStream = amp->OpenEegStream(500);
         addstr("Measuring eeg. Press s to exit\n");
         while (true) {
-            if (getch() == 's') {
+            auto c = getch();
+            if (c == 's') {
                 break;
             }
 
-            auto line = processStream(eegStream, 0);
+            auto line = processStream(eegStream, 3);
 
             // Log the stream data to the terminal if debug mode is enabled
             if (args.debug) {
@@ -132,7 +135,7 @@ int main(int argc, char *argv[]) {
             eeg_data_file.close();
 
             // Sleep
-            napms(1000);
+            napms(500);
         }
 
         std::cout<<"exited: "<<std::endl;
