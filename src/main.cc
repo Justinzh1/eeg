@@ -12,17 +12,16 @@ const std::string EEG_DATA_FILE = "/home/callosum/Documents/burning_man/burning 
 struct EegParams {
     bool debug;
     int sample_frequency;
+    std::string channel_mask;
 };
 
 EegParams getArgs(int argc, char *argv[]) {
-    EegParams params = EegParams{
-        debug: false,
-        sample_frequency: 500,
-    };
+    EegParams params = EegParams{};
     int opt;
     bool d_flag = false;
     int sample_frequency = 500;
-    while ((opt = getopt(argc, argv, "hds:")) != -1) {
+    std::string channel_mask = "1000000";
+    while ((opt = getopt(argc, argv, "hdc:s:")) != -1) {
         switch(opt) {
         case 'd':
             d_flag = true;
@@ -30,14 +29,18 @@ EegParams getArgs(int argc, char *argv[]) {
         case 's':
             sample_frequency = atoi(optarg);
             break;
+        case 'c':
+            channel_mask = std::string(optarg);
+            break;
         case 'h':
             fprintf(stderr,
                 "Eego handler \n"
                 "Usage: eego [OPTION]...\n"
-                "Example: eego -d -s500\n"
+                "Example: eego -s500 -c1000000\n"
                 "\n"
                 "  -h        Print out this help\n"
                 "  -d        Debug mode to show more logs\n"
+                "  -c        Channels provided as a bitmask (eg. 10000000 will provide channel 1)"
                 "  -s        Sample frequency (eg. 500, 512, 1000, 1024, 2000, 2048, 4000, 4096, 8000, 8192, 16000, 16384)\n"
             );
             exit(EXIT_FAILURE);
@@ -48,42 +51,49 @@ EegParams getArgs(int argc, char *argv[]) {
 
     params.debug = d_flag;
     params.sample_frequency = sample_frequency;
+    params.channel_mask = channel_mask;
     
     std::cout << "using debug mode = " << params.debug << "\n";
     std::cout << "using sample frequency = " << params.sample_frequency << "\n";
+    std::cout << "using channel mask = " << params.channel_mask << "\n";
 
     return params;
 }
 
 void printChannelData(std::vector<eemagine::sdk::channel> channels) {
     std::cout << "Found " << channels.size() << " channels.\n";
-        for (uint32_t i = 0; i < channels.size(); ++i) {
-            auto channel = channels[i];
-            std::cout << "Channel Type: " << channel.getType() << " index: " << channel.getIndex() << "\n";
-    }
 }
 
-std::string processStream(eemagine::sdk::stream* stream, int targetChannel) {
+void processStream(eemagine::sdk::stream* stream, bool debug) {
     eemagine::sdk::buffer buf = stream->getData();
 
-    if (targetChannel > 7) {
-        addstr("invalid channel, must be less than 7");
-    }
-
     // Process Channel Data
-    // auto channelCount = buf.getChannelCount();
+    auto channelCount = buf.getChannelCount();
+    auto debugLog = "Found channels " + std::to_string(channelCount) + " \n";
+    addstr(debugLog.c_str());
     auto sampleCount = buf.getSampleCount();
-    std::string line = "";
-    for (int j = 0; j < 8; j++) {
+    for (int c = 0; c < channelCount; c++) {
+        std::string line = "";
         for (int i = 0; i < sampleCount; i++) {
-            auto sample = buf.getSample(targetChannel, i);
-            if (j == targetChannel) {
-                line += std::to_string(sample) + ",";
-            }
+            // Always take the first channel (we assume there is only 1 channel after we mask)
+            auto sample = buf.getSample(c, i);
+            line += std::to_string(sample) + ",";
+        }
+
+        // Log the stream data to the terminal if debug mode is enabled
+        if (debug) {
+            auto debugLine = "[" + std::to_string(c) + "] " + line + "\n";
+            addstr(debugLine.c_str());
+        }
+
+        // Write the stream data to a file
+        // Only write the data from the first channel
+        if (c == 0) {
+            std::fstream eeg_data_file = std::fstream(EEG_DATA_FILE, std::fstream::in | std::fstream::out | std::fstream::app);
+            eeg_data_file << line;
+            eeg_data_file.close();
         }
     }
-    line += "\n";
-    return line;
 }
 
 int main(int argc, char *argv[]) {
@@ -107,37 +117,39 @@ int main(int argc, char *argv[]) {
         auto channels = amp->getChannelList();
         printChannelData(channels);
 
+        std::vector<eemagine::sdk::channel> channel_list;
+        for (int i = 0; i < args.channel_mask.length(); i++) {
+            if (args.channel_mask[i] == '1') {
+                channel_list.push_back(channels[i]);
+            } 
+        }
+        std::cout << "Keeping data from ";
+
         // Initiate the terminal 
         initscr();
         cbreak();
         noecho();
         scrollok(stdscr, TRUE);
         nodelay(stdscr, TRUE);
-// Collect eeg data
-        stream* eegStream = amp->OpenEegStream(500);
+
+        stream* eegStream = amp->OpenEegStream(500, 1, 4, channel_list);
         addstr("Measuring eeg. Press s to exit\n");
+
         while (true) {
             auto c = getch();
+
+            // Stop the loop
             if (c == 's') {
                 break;
             }
 
-            auto line = processStream(eegStream, 3);
-
-            // Log the stream data to the terminal if debug mode is enabled
-            if (args.debug) {
-                addstr(line.c_str());
-            }
-
-            // Write the stream data to a file
-            std::fstream eeg_data_file = std::fstream(EEG_DATA_FILE, std::fstream::in | std::fstream::out | std::fstream::trunc);
-            eeg_data_file << line;
-            eeg_data_file.close();
+            processStream(eegStream, args.debug);
 
             // Sleep
             napms(500);
         }
 
+        // Clean up
         std::cout<<"exited: "<<std::endl;
         delete eegStream;
         delete amp;
